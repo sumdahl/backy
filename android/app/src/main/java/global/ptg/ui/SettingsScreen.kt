@@ -137,7 +137,7 @@ fun SettingsScreen(s: Settings) {
 
             section("Albums", listOf(
                     Pref("Add uploads to album No album link existing") { TextRow("Add uploads to album", s.albumName, "No album", { v -> edit { it.copy(albumName = v) } }, Icons.Outlined.PhotoAlbum,
-                        help = "A name creates that album. To use an album you already have, paste its link from photos.google.com.") },
+                        help = "A name creates that album. To use an album you already have, paste its link (a share link or the address from photos.google.com).") },
                     Pref("One album per folder Camera goes to “Camera”, WhatsApp Images to “WhatsApp Images”…") { SwitchRow("One album per folder", s.albumPerFolder, { v -> edit { it.copy(albumPerFolder = v) } },
                         "Camera goes to “Camera”, WhatsApp Images to “WhatsApp Images”…") },
                 ))

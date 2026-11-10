@@ -72,3 +72,16 @@ class AlbumRefTest {
         org.junit.Assert.assertEquals("Panchpokhari", global.ptg.backup.albumRef(" Panchpokhari "))
     }
 }
+
+class AlbumLinkSafetyTest {
+    @org.junit.Test
+    fun shareAddressesGiveKeysAndUnresolvedLinksNeverBecomeNames() {
+        val key = "AF1QipFakeAlbumKey1"
+        org.junit.Assert.assertEquals(key, global.ptg.backup.albumRef("https://photos.google.com/share/$key?key=abc"))
+        val item = global.ptg.data.MediaItem(1, "/p", "a.jpg", "b1", "Trip", 1, 0, 0, false, 0)
+        fun target(album: String) = global.ptg.data.Settings(folders = mapOf("b1" to global.ptg.data.FolderPrefs(enabled = true, album = album))).albumTarget(item)
+        org.junit.Assert.assertNull(target("https://photos.app.goo.gl/ExampleShareLink"))
+        org.junit.Assert.assertEquals("key:$key", target("https://photos.google.com/share/$key?key=abc"))
+        org.junit.Assert.assertEquals("name:Trip 2026", target("Trip 2026"))
+    }
+}

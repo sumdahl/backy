@@ -118,11 +118,40 @@ class AlbumSync(
 
 fun isAlbumKey(s: String) = s.startsWith("AF1Qip") && s.length > 6
 
-private val albumUrl = Regex("""/album/(AF1Qip[A-Za-z0-9_-]+)""")
+private val albumUrl = Regex("""/(?:album|share)/(AF1Qip[A-Za-z0-9_-]+)""")
 
 /**
- * What the user typed into an album field: a Google Photos album web address
- * (photos.google.com/…/album/AF1Qip…) becomes its key, so an existing album can be linked by
- * pasting its link. Anything else is returned trimmed: a key, or a name to create.
+ * What the user typed into an album field: an album's web address (photos.google.com/…/album/
+ * or /share/AF1Qip…) becomes its key, so an existing album can be linked by pasting its link.
+ * Anything else is returned trimmed: a key, a name to create, or a link [resolveAlbumLink] must follow.
  */
 fun albumRef(input: String): String = input.trim().let { s -> albumUrl.find(s)?.groupValues?.get(1) ?: s }
+
+/** Looks like a web address. Never used as an album name, even if it leads nowhere. */
+fun isLink(s: String) = s.trim().let { it.startsWith("http://", true) || it.startsWith("https://", true) || "goo.gl/" in it }
+
+/**
+ * Follows a share link (photos.app.goo.gl/…) to the album it opens and returns the album key,
+ * or null if it doesn't lead to one. Reads only the redirect headers; downloads nothing.
+ */
+fun resolveAlbumLink(link: String): String? {
+    var url = link.trim()
+    repeat(5) {
+        albumRef(url).takeIf { isAlbumKey(it) }?.let { return it }
+        val conn = runCatching { java.net.URI(url).toURL().openConnection() as java.net.HttpURLConnection }.getOrNull() ?: return null
+        try {
+            conn.instanceFollowRedirects = false
+            conn.requestMethod = "HEAD"
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            if (conn.responseCode !in 300..399) return null
+            url = conn.getHeaderField("Location")?.let { java.net.URI(url).resolve(it).toString() } ?: return null
+        } catch (_: java.io.IOException) {
+            return null
+        } finally {
+            conn.disconnect()
+        }
+    }
+    return null
+}

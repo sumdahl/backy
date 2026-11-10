@@ -169,7 +169,7 @@ object Backup {
             return@coroutineScope
         }
         val items = c.rescan()
-        val s = c.settings.data.first()
+        val s = resolveAlbumLinks(c.settings.data.first())
         val records = c.db.uploads().all().first().associateBy { it.mediaId }
 
         // Items already in Google Photos whose folder now has an album (e.g. albums were turned on
@@ -201,9 +201,10 @@ object Backup {
             is Selection.Items -> selection.album
             is Selection.Files -> selection.album
             else -> null
-        }?.takeIf { it.isNotBlank() }?.trim()
+        }?.takeIf { it.isNotBlank() }?.trim()?.let { a -> if (isLink(a)) withContext(Dispatchers.IO) { resolveAlbumLink(a) } ?: a else a }
         fun targetFor(item: MediaItem) =
-            albumOverride?.let { albumRef(it) }?.let { if (isAlbumKey(it)) "key:$it" else "name:$it" } ?: s.albumTarget(item)
+            if (albumOverride != null) albumRef(albumOverride).let { if (isAlbumKey(it)) "key:$it" else if (isLink(it)) null else "name:$it" }
+            else s.albumTarget(item)
         if (queue.isEmpty()) {
             val albumNote = syncAlbums(c, s, items)
             state.value = RunState(phase = Phase.Finished, endedAt = System.currentTimeMillis(),
@@ -309,6 +310,16 @@ object Backup {
                 c.rescan()
             }
         }
+    }
+
+    /**
+     * Share links (photos.app.goo.gl/…) in album fields, swapped for the album key they lead to.
+     * One look per distinct link per run; a link that leads nowhere stays, and means no album.
+     */
+    private suspend fun resolveAlbumLinks(s: Settings): Settings = withContext(Dispatchers.IO) {
+        val seen = HashMap<String, String>()
+        fun r(v: String) = if (isLink(v) && !isAlbumKey(albumRef(v))) seen.getOrPut(v) { resolveAlbumLink(v) ?: v } else v
+        s.copy(albumName = r(s.albumName), folders = s.folders.mapValues { (_, p) -> p.copy(album = p.album?.let(::r)) })
     }
 
     /** Saves the run that just ended to the history (stats screen, widget). */

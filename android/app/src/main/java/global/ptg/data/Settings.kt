@@ -104,7 +104,14 @@ data class Settings(
      * a folder on the phone keeps it in the same album.
      */
     fun albumTarget(item: MediaItem): String? {
-        fun named(input: String) = global.ptg.backup.albumRef(input).let { if (global.ptg.backup.isAlbumKey(it)) "key:$it" else "name:$it" }
+        fun named(input: String) = global.ptg.backup.albumRef(input).let {
+            when {
+                global.ptg.backup.isAlbumKey(it) -> "key:$it"
+                // A link that didn't lead to an album: no album, rather than one named after the link.
+                global.ptg.backup.isLink(it) -> null
+                else -> "name:$it"
+            }
+        }
         folder(item.bucketId, item.bucket).album?.takeIf { it.isNotBlank() }?.let { return named(it) }
         if (albumPerFolder) return "folder:${item.bucketId}"
         if (albumName.isNotBlank()) return named(albumName)

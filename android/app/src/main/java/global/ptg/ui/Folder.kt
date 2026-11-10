@@ -77,7 +77,7 @@ fun FolderScreen(id: String, settings: Settings, onBack: () -> Unit) {
                         {
                             TextRow("Album", p.album ?: "", if (settings.albumPerFolder) "One album named after the folder" else "Default (${settings.albumName.ifEmpty { "none" }})",
                                 { a -> set { it.copy(album = a.ifEmpty { null }) } }, Icons.Outlined.PhotoAlbum,
-                                help = "A name creates that album. To use an album you already have, paste its link from photos.google.com. Leave empty for the default.")
+                                help = "A name creates that album. To use an album you already have, paste its link (a share link or the address from photos.google.com). Leave empty for the default.")
                         },
                         {
                             ChoiceRow("Quality", listOf<Boolean?>(null, false, true), p.saver,

@@ -114,6 +114,8 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
         if (q.isEmpty) lib.folders else lib.folders.filter { q.matches(it.name) }
     }
     var shareCheck by remember { mutableIntStateOf(0) }
+    var sharesHidden by remember { mutableStateOf(false) }
+    val snackbar = LocalSnackbar.current
     val shares by produceState(emptyList<Selection.Files>(), run.active, shareCheck) {
         value = withContext(Dispatchers.IO) { Shares.pending(context) }
     }
@@ -165,12 +167,17 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                     { startBackup(context, settings, Selection.Failed) },
                     secondary = "Details" to { go(Route.Activity) }, error = true)
             }
-            if (shares.isNotEmpty() && !run.active) item(key = "shares") {
+            if (shares.isNotEmpty() && !run.active && !sharesHidden) item(key = "shares") {
                 val n = shares.sumOf { it.paths.size }
                 Notice(Icons.Outlined.ErrorOutline, "${plural(n, "shared item")} not backed up yet",
                     "Kept on this phone until they're in Google Photos.", "Retry",
                     { startBackup(context, settings, shares.first()) },
-                    secondary = "Discard" to { scope.launch(Dispatchers.IO) { Shares.discard(context); shareCheck++ } }, error = true)
+                    secondary = "Discard" to {
+                        sharesHidden = true
+                        undoable(c.scope, snackbar, "Discarded ${plural(n, "shared item")}",
+                            commit = { withContext(Dispatchers.IO) { Shares.discard(context) }; shareCheck++; sharesHidden = false },
+                        ) { sharesHidden = false }
+                    }, error = true)
             }
             item(key = "folders-h") {
                 SectionHeader("Folders · ${lib.enabledFolders} of ${lib.folders.size} backing up")

@@ -62,6 +62,7 @@ fun SettingsScreen(s: Settings) {
     val c = context.container
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var confirmReset by remember { mutableStateOf(false) }
+    val snackbar = LocalSnackbar.current
     fun edit(f: (Settings) -> Settings) = c.edit(f)
 
     var searching by rememberSaveable { mutableStateOf(false) }
@@ -197,7 +198,13 @@ fun SettingsScreen(s: Settings) {
                         }
                     },
                     Pref("Clear excluded items Let “Never back up” items back in") { NavRow("Clear excluded items", "Let “Never back up” items back in", Icons.Outlined.Block) {
-                        c.scope.launch { c.db.uploads().clearNever() }
+                        c.scope.launch {
+                            val before = c.db.uploads().never()
+                            c.db.uploads().clearNever()
+                            if (before.isNotEmpty()) undoable(c.scope, snackbar, "${plural(before.size, "item")} can be backed up again") {
+                                c.db.uploads().put(before)
+                            }
+                        }
                     } },
                     Pref("Reset upload history clear delete data Forget what's been backed up; Google Photos keeps it") { NavRow("Reset upload history", "Forget what's been backed up; Google Photos keeps it", Icons.Outlined.DeleteForever) { confirmReset = true } },
                 ))

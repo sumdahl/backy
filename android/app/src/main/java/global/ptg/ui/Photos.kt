@@ -74,6 +74,7 @@ import global.ptg.data.MediaItem
 import global.ptg.data.Settings
 import global.ptg.data.UploadRecord
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 enum class Filter(val label: String) { All("All"), Pending("Not backed up"), Done("Backed up"), Failed("Failed"), Videos("Videos"), Excluded("Excluded") }
 
@@ -153,6 +154,7 @@ fun FilterRow(filter: Filter, onChange: (Filter) -> Unit) {
 fun SelectionBar(selected: SnapshotStateList<Long>, shown: List<MediaItem>, settings: Settings) {
     val context = LocalContext.current
     val c = context.container
+    val snackbar = LocalSnackbar.current
     TopAppBar(
         title = { Text("${formatCount(selected.size)} selected") },
         navigationIcon = { IconButton({ selected.clear() }) { Icon(Icons.Outlined.Close, "Clear selection") } },
@@ -160,9 +162,13 @@ fun SelectionBar(selected: SnapshotStateList<Long>, shown: List<MediaItem>, sett
         actions = {
             IconButton({ selected.clear(); selected.addAll(shown.map { it.id }) }) { Icon(Icons.Outlined.SelectAll, "Select all") }
             IconButton({
-                val ids = selected.toList()
-                c.scope.launch { markNever(c, shown.filter { it.id in ids }) }
+                val ids = selected.toSet()
+                val items = shown.filter { it.id in ids }
                 selected.clear()
+                c.scope.launch {
+                    val restore = markNever(c, items)
+                    undoable(c.scope, snackbar, "${plural(items.size, "item")} won't be backed up") { restore() }
+                }
             }) { Icon(Icons.Outlined.Block, "Never back up") }
             IconButton({
                 startBackup(context, settings, Selection.Items(selected.toSet()))
@@ -172,9 +178,16 @@ fun SelectionBar(selected: SnapshotStateList<Long>, shown: List<MediaItem>, sett
     )
 }
 
-suspend fun markNever(c: global.ptg.AppContainer, items: List<MediaItem>) {
+/** Marks [items] "never back up"; the returned function puts back what they were before. */
+suspend fun markNever(c: global.ptg.AppContainer, items: List<MediaItem>): suspend () -> Unit {
+    val ids = items.map { it.id }.toSet()
+    val before = c.db.uploads().all().first().filter { it.mediaId in ids }
     val now = System.currentTimeMillis()
     c.db.uploads().put(items.map { UploadRecord(it.id, it.path, it.size, it.modified, "never", "", "", now) })
+    return {
+        c.db.uploads().delete(ids.toList())
+        if (before.isNotEmpty()) c.db.uploads().put(before)
+    }
 }
 
 /** Day-grouped grid with status badges, long-press (and drag) to select, tap to view full screen. */

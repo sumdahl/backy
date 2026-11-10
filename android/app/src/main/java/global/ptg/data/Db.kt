@@ -99,6 +99,9 @@ interface UploadDao {
     @Query("DELETE FROM uploads WHERE mediaId IN (:ids)")
     suspend fun delete(ids: List<Long>)
 
+    @Query("SELECT * FROM uploads WHERE status = 'never'")
+    suspend fun never(): List<UploadRecord>
+
     @Query("DELETE FROM uploads WHERE status = 'never'")
     suspend fun clearNever()
 

@@ -33,6 +33,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
@@ -139,45 +148,52 @@ fun App(settings: Settings) {
     val go: (Route) -> Unit = { backStack.add(it) }
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
 
-    NavDisplay(
-        backStack = backStack,
-        onBack = back,
-        transitionSpec = { sharedAxis(forward = true) },
-        popTransitionSpec = { sharedAxis(forward = false) },
-        predictivePopTransitionSpec = { _ -> sharedAxis(forward = false) },
-        entryProvider = entryProvider {
-            entry<Route.Main> {
-                // A phone in landscape gets a side rail too: a bottom bar there eats scarce height.
-                val wide = windowSize().width >= 600.dp
-                NavigationSuiteScaffold(
-                    layoutType = if (wide) NavigationSuiteType.NavigationRail
-                        else NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo()),
-                    navigationSuiteItems = {
-                        Tab.entries.forEach { t ->
-                            item(
-                                selected = t == tab,
-                                onClick = { tab = t },
-                                icon = { Icon(if (t == tab) t.selectedIcon else t.icon, null) },
-                                label = { Text(t.label) },
-                            )
+    val snackbar = remember { SnackbarHostState() }
+    val wide = windowSize().width >= 600.dp
+    CompositionLocalProvider(LocalSnackbar provides snackbar) { Box(Modifier.fillMaxSize()) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = back,
+            transitionSpec = { sharedAxis(forward = true) },
+            popTransitionSpec = { sharedAxis(forward = false) },
+            predictivePopTransitionSpec = { _ -> sharedAxis(forward = false) },
+            entryProvider = entryProvider {
+                entry<Route.Main> {
+                    // A phone in landscape gets a side rail too: a bottom bar there eats scarce height.
+                    val wide = windowSize().width >= 600.dp
+                    NavigationSuiteScaffold(
+                        layoutType = if (wide) NavigationSuiteType.NavigationRail
+                            else NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo()),
+                        navigationSuiteItems = {
+                            Tab.entries.forEach { t ->
+                                item(
+                                    selected = t == tab,
+                                    onClick = { tab = t },
+                                    icon = { Icon(if (t == tab) t.selectedIcon else t.icon, null) },
+                                    label = { Text(t.label) },
+                                )
+                            }
+                        },
+                    ) {
+                        when (tab) {
+                            Tab.Home -> HomeScreen(settings, access, go, onAllowAll = { ask.launch(mediaPermissions) }, onTab = { tab = it })
+                            Tab.Photos -> PhotosScreen(settings)
+                            Tab.Accounts -> AccountsScreen(go)
+                            Tab.Settings -> SettingsScreen(settings)
                         }
-                    },
-                ) {
-                    when (tab) {
-                        Tab.Home -> HomeScreen(settings, access, go, onAllowAll = { ask.launch(mediaPermissions) }, onTab = { tab = it })
-                        Tab.Photos -> PhotosScreen(settings)
-                        Tab.Accounts -> AccountsScreen(go)
-                        Tab.Settings -> SettingsScreen(settings)
                     }
                 }
-            }
-            entry<Route.Login> { LoginScreen(onDone = back) }
-            entry<Route.Activity> { ActivityScreen(settings, onBack = back) }
-            entry<Route.Stats> { StatsScreen(onBack = back) }
-            entry<Route.FreeUp> { FreeUpScreen(onBack = back) }
-            entry<Route.Folder> { FolderScreen(it.id, settings, onBack = back) }
-        },
-    )
+                entry<Route.Login> { LoginScreen(onDone = back) }
+                entry<Route.Activity> { ActivityScreen(settings, onBack = back) }
+                entry<Route.Stats> { StatsScreen(onBack = back) }
+                entry<Route.FreeUp> { FreeUpScreen(onBack = back) }
+                entry<Route.Folder> { FolderScreen(it.id, settings, onBack = back) }
+            },
+        )
+        // Above the bottom bar on phones; with a side rail there's nothing to clear.
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+            .padding(bottom = if (wide) 16.dp else 80.dp, start = if (wide) 96.dp else 0.dp))
+    } }
 }
 
 // Material "shared axis X": the new screen slides a short way in while fading, the old one

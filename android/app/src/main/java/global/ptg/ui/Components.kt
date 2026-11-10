@@ -1,5 +1,6 @@
 package global.ptg.ui
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -236,4 +237,27 @@ fun SearchField(
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
         modifier = modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m },
     )
+}
+
+/** The app's one snackbar, shown above the navigation bar on every tab. */
+val LocalSnackbar = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.material3.SnackbarHostState> { error("No snackbar host") }
+
+/**
+ * Shows [message] with Undo. [undo] runs if it's tapped; [commit] runs if it isn't, for actions
+ * that should only really happen once the chance to undo has passed. Runs in [scope], usually the
+ * app's, so leaving the screen doesn't cancel it.
+ */
+fun undoable(
+    scope: kotlinx.coroutines.CoroutineScope,
+    host: androidx.compose.material3.SnackbarHostState,
+    message: String,
+    commit: suspend () -> Unit = {},
+    undo: suspend () -> Unit,
+) {
+    scope.launch {
+        host.currentSnackbarData?.dismiss()
+        val r = host.showSnackbar(message, actionLabel = "Undo", withDismissAction = true,
+            duration = androidx.compose.material3.SnackbarDuration.Long)
+        if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) undo() else commit()
+    }
 }

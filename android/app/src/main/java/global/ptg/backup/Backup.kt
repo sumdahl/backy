@@ -84,8 +84,11 @@ data class RunState(
     val exists: Int = 0,
     val skipped: Int = 0,
     val failed: Int = 0,
+    /** Work progress: sizes of items checked so far, whatever Google answered. Drives the bar and ETA only. */
     val bytesTotal: Long = 0,
     val bytesDone: Long = 0,
+    /** Bytes actually uploaded: items Google didn't have, plus what's in flight. The only byte figure shown. */
+    val bytesSent: Long = 0,
     val startedAt: Long = 0,
     val endedAt: Long = 0,
     val waitUntil: Long = 0,
@@ -102,14 +105,25 @@ data class RunState(
         else -> 0f
     }
     /** bytes per second since the run started */
+    /** Upload speed. */
     fun speed(now: Long): Long {
         val secs = (now - startedAt) / 1000.0
-        return if (secs > 1) (bytesDone / secs).toLong() else 0
+        return if (secs > 1) (bytesSent / secs).toLong() else 0
     }
+    /** Time left, from how fast items are being got through (checked or sent). */
     fun etaSeconds(now: Long): Long {
-        val s = speed(now)
-        return if (s > 0) (bytesTotal - bytesDone).coerceAtLeast(0) / s else -1
+        val secs = (now - startedAt) / 1000.0
+        val rate = if (secs > 1) bytesDone / secs else 0.0
+        return if (rate > 0) ((bytesTotal - bytesDone).coerceAtLeast(0) / rate).toLong() else -1
     }
+    /** Nothing has needed uploading yet: everything so far was already in Google Photos. */
+    val checkingOnly get() = uploaded == 0 && bytesSent == 0L
+    /** "263 already there · 120 MB sent · 2 failed", leaving out what's zero. */
+    fun detail(): String = listOfNotNull(
+        "${global.ptg.ui.formatCount(exists)} already there".takeIf { exists > 0 },
+        "${global.ptg.ui.formatBytes(bytesSent)} sent".takeIf { bytesSent > 0 },
+        "${global.ptg.ui.formatCount(failed)} failed".takeIf { failed > 0 },
+    ).joinToString(" · ")
 }
 
 object Backup {
@@ -226,6 +240,7 @@ object Backup {
 
         val outcome = HashMap<Long, String>()
         var finishedBytes = 0L
+        var uploadedBytes = 0L
         val threads = HashMap<Int, ThreadUi>()
         // Go calls back from several worker threads; one lock guards everything below.
         val lock = Any()
@@ -256,7 +271,7 @@ object Backup {
                                 if (t.status == "idle" || t.status == "completed") threads.remove(t.worker)
                                 else threads[t.worker] = ThreadUi(t.worker, t.name, t.status, t.sent, t.total)
                                 val inflight = threads.values.filter { it.status == "uploading" }.sumOf { it.sent }
-                                state.update { it.copy(threads = threads.values.sortedBy { x -> x.worker }, bytesDone = finishedBytes + inflight) }
+                                state.update { it.copy(threads = threads.values.sortedBy { x -> x.worker }, bytesDone = finishedBytes + inflight, bytesSent = uploadedBytes + inflight) }
                             }
                             is EngineEvent.Result -> synchronized(lock) {
                                 val r = ev.r
@@ -267,6 +282,7 @@ object Backup {
                                     if (r.status == "failed" && (state.value.phase == Phase.Stopped || "context canceled" in r.error)) continue
                                     val old = outcome.put(item.id, r.status)
                                     if (old == null) finishedBytes += item.size
+                                    if (r.status == "uploaded" && old != "uploaded") uploadedBytes += item.size
                                     if (r.status == "failed") { failed += item; errors.append(r.error.lowercase()).append(' ') }
                                     // Shared files have no gallery row to remember them by.
                                     if (item.id > 0) toSave += UploadRecord(item.id, item.path, item.size, item.modified, r.status, r.detail, opts.api.account, now, r.mediaKey)
@@ -278,7 +294,7 @@ object Backup {
                                         if (old != null) n = n.minus(old)
                                         n = n.plus(r.status)
                                         if (r.status == "failed") n = n.copy(recentFailures = (listOf(item.name to r.error) + n.recentFailures).take(20))
-                                        n.copy(bytesDone = finishedBytes)
+                                        n.copy(bytesDone = finishedBytes, bytesSent = uploadedBytes)
                                     }
                                 }
                             }
@@ -329,7 +345,7 @@ object Backup {
         c.db.runs().add(global.ptg.data.RunRecord(
             startedAt = s.startedAt.takeIf { it > 0 } ?: s.endedAt, endedAt = s.endedAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
             outcome = s.phase.name, uploaded = s.uploaded, alreadyThere = s.exists, skipped = s.skipped,
-            failed = s.failed, bytes = s.bytesDone, message = s.message,
+            failed = s.failed, bytes = s.bytesSent, message = s.message,
         ))
     }
 

@@ -118,7 +118,7 @@ class BackupWidget : AppWidgetProvider() {
                 val pct = (s.fraction * 100).toInt()
                 setTextViewText(R.id.widget_title, if (s.phase == Phase.Queued) s.message else "Backing up · $pct%")
                 setTextViewText(R.id.widget_status,
-                    if (s.total > 0) "${formatCount(s.done)} of ${formatCount(s.total)} · ${formatBytes(s.bytesDone)}" else s.message)
+                    if (s.total > 0) "${formatCount(s.done)} of ${formatCount(s.total)}" + (if (s.bytesSent > 0) " · ${formatBytes(s.bytesSent)} sent" else "") else s.message)
                 setViewVisibility(R.id.widget_progress, View.VISIBLE)
                 setProgressBar(R.id.widget_progress, 100, pct, s.phase == Phase.Queued || s.phase == Phase.Preparing)
                 setTextViewText(R.id.widget_button, "Open")

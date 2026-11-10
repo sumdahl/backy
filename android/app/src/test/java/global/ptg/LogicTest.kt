@@ -85,3 +85,17 @@ class AlbumLinkSafetyTest {
         org.junit.Assert.assertEquals("name:Trip 2026", target("Trip 2026"))
     }
 }
+
+class TransferFiguresTest {
+    @org.junit.Test
+    fun onlyUploadedBytesCountAsSent() {
+        val allThere = global.ptg.backup.RunState(total = 267, exists = 267, bytesTotal = 1_800_000_000, bytesDone = 1_800_000_000)
+        org.junit.Assert.assertTrue(allThere.checkingOnly)
+        org.junit.Assert.assertEquals("267 already there", allThere.detail())
+
+        val mixed = global.ptg.backup.RunState(total = 4, exists = 3, uploaded = 1, bytesDone = 4_000_000, bytesSent = 1_000_000)
+        org.junit.Assert.assertFalse(mixed.checkingOnly)
+        org.junit.Assert.assertTrue(mixed.detail().startsWith("3 already there · "))
+        org.junit.Assert.assertTrue(mixed.detail().endsWith(" sent"))
+    }
+}

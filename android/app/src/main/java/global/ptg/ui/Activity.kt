@@ -84,9 +84,11 @@ fun ActivityScreen(settings: Settings, onBack: () -> Unit) {
                     if (run.phase != Phase.Idle) {
                         val speed = run.speed(if (run.active) now else run.endedAt)
                         Text(
-                            "${formatBytes(run.bytesDone)} of ${formatBytes(run.bytesTotal)}" +
-                                (if (speed > 0) " · ${formatBytes(speed)}/s" else "") +
-                                (run.etaSeconds(now).takeIf { run.active && it > 0 }?.let { " · ${formatDuration(it)} left" } ?: ""),
+                            listOfNotNull(
+                                run.detail().takeIf { it.isNotEmpty() },
+                                "${formatBytes(speed)}/s".takeIf { speed > 0 },
+                                run.etaSeconds(now).takeIf { run.active && it > 0 }?.let { "${formatDuration(it)} left" },
+                            ).joinToString(" · "),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp),
                         )

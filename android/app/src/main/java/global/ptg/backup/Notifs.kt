@@ -44,12 +44,12 @@ object Notifs {
             Phase.Preparing -> "Getting ready…"
             Phase.Waiting -> "Waiting to retry"
             Phase.Albums -> s.message
-            else -> "Backing up ${minOf(s.done + 1, s.total)} of ${s.total}"
+            else -> "${if (s.checkingOnly) "Checking" else "Backing up"} ${minOf(s.done + 1, s.total)} of ${s.total}"
         }
         val eta = s.etaSeconds(now)
         val text = buildString {
-            if (s.bytesTotal > 0) append("${formatBytes(s.bytesDone)} of ${formatBytes(s.bytesTotal)}")
-            if (eta > 0) append(" · ${formatDuration(eta)} left")
+            append(s.detail())
+            if (eta > 0) append(if (isEmpty()) "" else " · ").append("${formatDuration(eta)} left")
         }
         val stop = PendingIntent.getBroadcast(
             context, 1, Intent(context, StopReceiver::class.java), PendingIntent.FLAG_IMMUTABLE,
@@ -83,7 +83,7 @@ object Notifs {
         val text = if (s.phase == Phase.Error) s.message else buildString {
             append("${s.uploaded} uploaded")
             if (s.exists > 0) append(" · ${s.exists} already there")
-            if (s.bytesDone > 0) append(" · ${formatBytes(s.bytesDone)}")
+            if (s.bytesSent > 0) append(" · ${formatBytes(s.bytesSent)} sent")
         }
         nm.notify(DONE_ID, NotificationCompat.Builder(context, DONE_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)

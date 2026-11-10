@@ -285,11 +285,13 @@ private fun Running(run: RunState, now: Long, onStop: () -> Unit, onDetails: () 
                 Text(run.message, style = MaterialTheme.typography.bodyMedium)
             } else {
                 Text("${formatCount(run.done)} of ${formatCount(run.total)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                Text("${formatBytes(run.bytesDone)} of ${formatBytes(run.bytesTotal)}", style = MaterialTheme.typography.bodyMedium)
+                run.detail().takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 val speed = run.speed(now)
                 val eta = run.etaSeconds(now)
-                if (speed > 0) Text("${formatBytes(speed)}/s" + if (eta > 0) " · ${formatDuration(eta)} left" else "",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                listOfNotNull("${formatBytes(speed)}/s".takeIf { speed > 0 }, "${formatDuration(eta)} left".takeIf { eta > 0 })
+                    .joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                    }
             }
         }
     }

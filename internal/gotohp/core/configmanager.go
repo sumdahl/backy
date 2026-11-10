@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
 	_ "modernc.org/sqlite"
@@ -764,8 +763,35 @@ func saveAppConfigLocked() error {
 		return err
 	}
 
+	if ConfigSealer != nil {
+		if b, err = ConfigSealer.Seal(b); err != nil {
+			return err
+		}
+	}
 	return writeConfigAtomically(ConfigPath, b)
 }
+
+// ConfigSealer, when set, encrypts the config file on write and decrypts it on read. The
+// Android app sets one backed by the Keystore; the CLI leaves it nil and stores plain YAML.
+// Open must accept plaintext too, so an existing unencrypted file still loads (and is
+// encrypted on the next save, see SaveConfig).
+var ConfigSealer interface {
+	Seal(plain []byte) ([]byte, error)
+	Open(stored []byte) ([]byte, error)
+}
+
+// SaveConfig rewrites the loaded config, e.g. to encrypt a file that was stored in plaintext.
+func SaveConfig() error {
+	configMu.Lock()
+	defer configMu.Unlock()
+	return saveAppConfigLocked()
+}
+
+// bytesProvider feeds already-read (and decrypted) config bytes to koanf.
+type bytesProvider []byte
+
+func (b bytesProvider) ReadBytes() ([]byte, error)          { return b, nil }
+func (bytesProvider) Read() (map[string]interface{}, error) { return nil, errors.New("not supported") }
 
 func writeConfigAtomically(path string, contents []byte) error {
 	directory := filepath.Dir(path)
@@ -800,14 +826,22 @@ func writeConfigAtomically(path string, contents []byte) error {
 func loadAppConfig() Config {
 	c := DefaultConfig
 	k := koanf.New(".")
-	if err := k.Load(file.Provider(ConfigPath), yaml.Parser()); err != nil {
+	raw, err := os.ReadFile(ConfigPath)
+	if err == nil && ConfigSealer != nil {
+		raw, err = ConfigSealer.Open(raw)
+	}
+	if err != nil {
+		log.Printf("error reading app config: %v", err)
+		return DefaultConfig
+	}
+	if err := k.Load(bytesProvider(raw), yaml.Parser()); err != nil {
 		log.Printf("error parsing app config: %v", err)
 		return DefaultConfig
 	}
 	if isLegacyConfig(k) {
 		return migrateLegacyConfig(k)
 	}
-	err := k.Unmarshal("", &c)
+	err = k.Unmarshal("", &c)
 	if err != nil {
 		log.Printf("error unmarshaling app config: %v", err)
 		return DefaultConfig

@@ -99,7 +99,8 @@ func uploadLivePhotoWithCallback(
 			FileName: displayName,
 			Message:  "Skipped: a Live Photo component already exists remotely",
 		})
-		return "", true, nil
+		// The key is still returned so callers can put the existing item in an album.
+		return photoRemoteKey, true, nil
 	}
 	// The VideoOriginal direction has not been recovered. A standalone remote MOV
 	// must not be combined with a newly uploaded still using the Phodeo request.
@@ -112,7 +113,7 @@ func uploadLivePhotoWithCallback(
 			FileName: displayName,
 			Message:  "Skipped: the Live Photo video already exists remotely",
 		})
-		return "", true, nil
+		return videoRemoteKey, true, nil
 	}
 
 	photoToken, err := uploadLivePhotoComponent(ctx, api, pair.PhotoPath, pair.PhotoPath, photoInfo.Size(), photoSHA1, 0, totalBytes, workerID, displayName, reporter)

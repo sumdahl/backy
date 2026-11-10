@@ -530,12 +530,21 @@ func canonicalUploadPath(path string) string {
 	return filepath.Clean(canonicalPath)
 }
 
+// errAlreadyInLibrary is returned, with the existing media key, when the file was already in
+// Google Photos and nothing was uploaded. It lets the worker report "exists" instead of
+// "uploaded"; it never reaches callers of UploadFile.
+var errAlreadyInLibrary = errors.New("already in library")
+
 // UploadFile uploads a single file and returns its media key.
 func UploadFile(ctx context.Context, api *Api, filePath string, opts UploadOptions, workerID int, reporter UploadReporter) (string, error) {
 	if reporter == nil {
 		reporter = NopReporter{}
 	}
-	return uploadSingleFile(ctx, api, filePath, opts, workerID, reporter)
+	key, err := uploadSingleFile(ctx, api, filePath, opts, workerID, reporter)
+	if errors.Is(err, errAlreadyInLibrary) {
+		err = nil
+	}
+	return key, err
 }
 
 func uploadSingleFile(ctx context.Context, api *Api, filePath string, opts UploadOptions, workerID int, reporter UploadReporter) (string, error) {
@@ -604,7 +613,7 @@ func uploadSingleFile(ctx context.Context, api *Api, filePath string, opts Uploa
 					return mediakey, fmt.Errorf("file exists in library but failed to delete local copy: %w", err)
 				}
 			}
-			return mediakey, nil
+			return mediakey, errAlreadyInLibrary
 		}
 	}
 
@@ -767,6 +776,7 @@ func (m *UploadManager) runWorker(workerID int, workChan <-chan UploadWorkItem, 
 					SkipReason:  skipReason,
 					Path:        path,
 					Paths:       paths,
+					MediaKey:    mediaKey, // the existing remote item, when known
 				}
 			} else {
 				results <- FileUploadResult{IsLivePhoto: isLivePhoto, Path: path, Paths: paths, MediaKey: mediaKey}
@@ -804,6 +814,9 @@ func uploadWorkItem(ctx context.Context, api *Api, item UploadWorkItem, opts Upl
 			return "", false, fmt.Errorf("invalid single-media work item")
 		}
 		mediaKey, err := uploadSingleFile(ctx, api, item.Single.Path, opts, workerID, reporter)
+		if errors.Is(err, errAlreadyInLibrary) {
+			return mediaKey, true, nil // reported as remote-duplicate, key kept for albums
+		}
 		return mediaKey, false, err
 	case UploadWorkLivePhoto:
 		if item.LivePhoto == nil || item.Single != nil {

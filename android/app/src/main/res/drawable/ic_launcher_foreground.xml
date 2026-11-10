@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A photo print, a second one behind it, and an upload badge. Kept inside the 66 dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <!-- back print -->
+    <group android:pivotX="52" android:pivotY="50" android:rotation="-12" android:translateX="-3" android:translateY="1">
+        <path android:fillColor="#59FFFFFF"
+            android:pathData="M40,30h24a8,8 0 0 1 8,8v24a8,8 0 0 1 -8,8h-24a8,8 0 0 1 -8,-8v-24a8,8 0 0 1 8,-8z" />
+    </group>
+
+    <!-- front print -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M40,30h24a8,8 0 0 1 8,8v24a8,8 0 0 1 -8,8h-24a8,8 0 0 1 -8,-8v-24a8,8 0 0 1 8,-8z" />
+
+    <group>
+        <clip-path android:pathData="M41,34h22a5,5 0 0 1 5,5v14a5,5 0 0 1 -5,5h-22a5,5 0 0 1 -5,-5v-14a5,5 0 0 1 5,-5z" />
+        <!-- sky -->
+        <path android:fillColor="#FFE6E9FF" android:pathData="M36,34h32v24h-32z" />
+        <!-- sun -->
+        <path android:fillColor="#FFFFB347" android:pathData="M56,41a4,4 0 1,0 8,0a4,4 0 1,0 -8,0z" />
+        <!-- far hill -->
+        <path android:fillColor="#FF9AA8FF" android:pathData="M36,58v-6l13,-9l11,8l8,-4v11z" />
+        <!-- near hill -->
+        <path android:fillColor="#FF5B6CFF" android:pathData="M36,58v-3l9,-8l9,7l5,-3l9,7v0z" />
+    </group>
+
+    <!-- caption lines -->
+    <path android:strokeColor="#FFD3D8FF" android:strokeWidth="2.6" android:strokeLineCap="round"
+        android:pathData="M39,63.5h14" />
+
+    <!-- upload badge -->
+    <path android:fillColor="#FF7C4DFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5"
+        android:pathData="M60,68a10,10 0 1,0 20,0a10,10 0 1,0 -20,0z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M70,62.5l-4.6,4.6h3v5.4h3.2v-5.4h3z" />
+</vector>

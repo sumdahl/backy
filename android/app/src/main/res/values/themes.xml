@@ -1,0 +1,17 @@
+<resources>
+    <style name="Theme.Ptg" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Ptg.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Ptg</item>
+    </style>
+    <!-- Invisible: the widget/tile trampoline. -->
+    <style name="Theme.Ptg.Invisible" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+    <!-- The share sheet draws its own bottom sheet over whatever app shared. -->
+    <style name="Theme.Ptg.Sheet" parent="Theme.Ptg.Invisible" />
+</resources>

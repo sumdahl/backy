@@ -14,7 +14,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -130,7 +131,7 @@ fun FreeUpScreen(onBack: () -> Unit) {
                         queue.addAll(p.items.map { it.uri }.chunked(2_000))
                         next()
                     },
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)
+                    modifier = Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 720.dp).fillMaxWidth().navigationBarsPadding().padding(16.dp)
                         .heightIn(min = ButtonDefaults.MediumContainerHeight),
                 ) {
                     Icon(Icons.Outlined.DeleteSweep, null)
@@ -140,7 +141,7 @@ fun FreeUpScreen(onBack: () -> Unit) {
             }
         },
     ) { pad ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = pad.calculateBottomPadding() + 16.dp)) {
+        ReadableLazyColumn(pad, bottom = pad.calculateBottomPadding() + 16.dp) {
             item(key = "hero") {
                 Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                     Text(formatBytes(p.bytes), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold,

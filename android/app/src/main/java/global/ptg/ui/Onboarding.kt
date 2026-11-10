@@ -3,6 +3,10 @@ package global.ptg.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,19 +39,25 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun Onboarding(hasAccess: Boolean, onAllow: () -> Unit, onDone: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        val short = isShortWindow()
         AnimatedContent(hasAccess, label = "onboarding") { granted ->
+            // Scrolls when the window is short (landscape), centred and button-at-bottom otherwise.
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
             Column(
-                Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 32.dp),
+                Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight).widthIn(max = 560.dp)
+                    .padding(horizontal = 24.dp, vertical = if (short) 16.dp else 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.size(0.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 ShapeIcon(
                     if (granted) Icons.Outlined.CloudUpload else Icons.Outlined.PhotoLibrary,
                     MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer,
-                    size = 120.dp,
+                    size = if (short) 72.dp else 120.dp,
                     shape = (if (granted) MaterialShapes.Cookie9Sided else MaterialShapes.Sunny).toShape(),
                 )
-                Spacer(Modifier.size(32.dp))
+                Spacer(Modifier.size(if (short) 16.dp else 32.dp))
                 Text(
                     if (granted) "You're in control" else "Back up your gallery",
                     style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center,
@@ -69,7 +79,7 @@ fun Onboarding(hasAccess: Boolean, onAllow: () -> Unit, onDone: () -> Unit) {
                         Point(Icons.Outlined.PhotoLibrary, "Your folders, your rules", "Camera, screenshots, WhatsApp — choose each one.")
                     }
                 }
-                Spacer(Modifier.weight(1f))
+                }
                 Button(
                     onClick = if (granted) onDone else onAllow,
                     modifier = Modifier.fillMaxWidth().heightIn(min = ButtonDefaults.MediumContainerHeight),
@@ -78,6 +88,7 @@ fun Onboarding(hasAccess: Boolean, onAllow: () -> Unit, onDone: () -> Unit) {
                     Text(if (granted) "Get started" else "Allow access to photos",
                         style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
                 }
+            }
             }
         }
     }

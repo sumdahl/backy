@@ -41,7 +41,6 @@ import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -58,6 +57,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -108,8 +114,8 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("Backup") },
+            AdaptiveTopBar(
+                "Backup", scroll,
                 subtitle = { Text(if (signedIn) accounts.selected else "Not signed in", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     IconButton(onClick = { go(Route.Stats) }) { Icon(Icons.Outlined.Insights, "Stats") }
@@ -118,23 +124,19 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                         else Icon(Icons.Outlined.CloudUpload, "Accounts")
                     }
                 },
-                scrollBehavior = scroll,
             )
         },
     ) { pad ->
-        LazyColumn(
-            contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 24.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            item(key = "hero") {
-                HeroCard(
-                    lib, run, signedIn,
-                    onBackup = { startBackup(context, settings) },
-                    onStop = { Backup.stop(context) },
-                    onDetails = { go(Route.Activity) },
-                    onSignIn = { go(Route.Login) },
-                )
-            }
+        val hero = @Composable {
+            HeroCard(
+                lib, run, signedIn,
+                onBackup = { startBackup(context, settings) },
+                onStop = { Backup.stop(context) },
+                onDetails = { go(Route.Activity) },
+                onSignIn = { go(Route.Login) },
+            )
+        }
+        val list: LazyListScope.() -> Unit = {
             if (!health.notifications) item(key = "notif") {
                 Notice(Icons.Outlined.NotificationsOff, "Notifications are off",
                     "You won't see backup progress or know when it's done. Android also hides the running backup.",
@@ -179,6 +181,19 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                 Notice(Icons.Outlined.DeleteSweep, "Free up ${formatBytes(lib.doneBytes)}",
                     "${plural(lib.doneCount, "item")} on this phone are already safe in Google Photos.",
                     "Review", { go(Route.FreeUp) })
+            }
+        }
+        if (isTwoPane()) {
+            // Landscape: the backup card stays in view on the left, notices and folders scroll on the right.
+            val dir = LocalLayoutDirection.current
+            Row(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding(), start = pad.calculateStartPadding(dir), end = pad.calculateEndPadding(dir))) {
+                Column(Modifier.weight(0.42f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) { hero() }
+                LazyColumn(Modifier.weight(0.58f).fillMaxHeight(), contentPadding = PaddingValues(bottom = 24.dp), content = list)
+            }
+        } else {
+            ReadableLazyColumn(pad, bottom = 24.dp) {
+                item(key = "hero") { hero() }
+                list()
             }
         }
     }

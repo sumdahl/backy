@@ -6,13 +6,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -74,7 +72,7 @@ fun AccountsScreen(go: (Route) -> Unit) {
             ExtendedFloatingActionButton(onClick = { go(Route.Login) }, icon = { Icon(Icons.Outlined.PersonAdd, null) }, text = { Text("Add account") })
         },
     ) { pad ->
-        LazyColumn(contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 96.dp)) {
+        ReadableLazyColumn(pad, bottom = 96.dp) {
             if (accounts.accounts.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     ShapeIcon(Icons.Outlined.PersonAdd, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, 112.dp)

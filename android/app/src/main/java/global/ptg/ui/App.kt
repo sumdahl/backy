@@ -33,6 +33,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -143,7 +147,11 @@ fun App(settings: Settings) {
         predictivePopTransitionSpec = { _ -> sharedAxis(forward = false) },
         entryProvider = entryProvider {
             entry<Route.Main> {
+                // A phone in landscape gets a side rail too: a bottom bar there eats scarce height.
+                val wide = windowSize().width >= 600.dp
                 NavigationSuiteScaffold(
+                    layoutType = if (wide) NavigationSuiteType.NavigationRail
+                        else NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo()),
                     navigationSuiteItems = {
                         Tab.entries.forEach { t ->
                             item(

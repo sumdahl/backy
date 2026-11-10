@@ -262,6 +262,8 @@ object Backup {
                                 val now = System.currentTimeMillis()
                                 for (p in r.allPaths) {
                                     val item = byPath[p] ?: continue
+                                    // Cut off by Stop, not refused: leave it as not backed up yet, for next time.
+                                    if (r.status == "failed" && (state.value.phase == Phase.Stopped || "context canceled" in r.error)) continue
                                     val old = outcome.put(item.id, r.status)
                                     if (old == null) finishedBytes += item.size
                                     if (r.status == "failed") { failed += item; errors.append(r.error.lowercase()).append(' ') }

@@ -57,6 +57,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -116,6 +118,10 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     var shareCheck by remember { mutableIntStateOf(0) }
     var sharesHidden by remember { mutableStateOf(false) }
     val snackbar = LocalSnackbar.current
+    // Failures went down (retried, or history reset): a later failure should show again.
+    LaunchedEffect(lib.loaded, lib.failed) {
+        if (lib.loaded && lib.failed < settings.failuresHiddenAt) c.edit { it.copy(failuresHiddenAt = lib.failed) }
+    }
     val shares by produceState(emptyList<Selection.Files>(), run.active, shareCheck) {
         value = withContext(Dispatchers.IO) { Shares.pending(context) }
     }
@@ -161,11 +167,13 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                 Notice(Icons.Outlined.PhotoLibrary, "Only some photos are shared with the app",
                     "Allow access to all photos to back up your whole gallery.", "Allow all", onAllowAll)
             }
-            if (lib.failed > 0 && !run.active) item(key = "failed") {
+            // Hidden with ✕ until there are more failures than when it was hidden.
+            if (lib.failed > settings.failuresHiddenAt && !run.active) item(key = "failed") {
                 Notice(Icons.Outlined.ErrorOutline, "${plural(lib.failed, "item")} couldn't be backed up",
-                    "Usually a network hiccup or a file Google Photos won't take.", "Retry",
+                    "Usually a network hiccup or a file Google Photos won't take. They'll be tried again with your next backup.", "Retry",
                     { startBackup(context, settings, Selection.Failed) },
-                    secondary = "Details" to { go(Route.Activity) }, error = true)
+                    secondary = "Details" to { go(Route.Activity) }, error = true,
+                    onClose = { c.edit { it.copy(failuresHiddenAt = lib.failed) } })
             }
             if (shares.isNotEmpty() && !run.active && !sharesHidden) item(key = "shares") {
                 val n = shares.sumOf { it.paths.size }
@@ -403,6 +411,7 @@ fun Notice(
     onAction: () -> Unit,
     secondary: Pair<String, () -> Unit>? = null,
     error: Boolean = false,
+    onClose: (() -> Unit)? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     Card(
@@ -414,7 +423,12 @@ fun Notice(
             Icon(icon, null, tint = if (error) cs.onErrorContainer else cs.primary)
             Spacer(Modifier.size(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    if (onClose != null) IconButton(onClose, Modifier.size(32.dp).offset(x = 8.dp, y = (-6).dp)) {
+                        Icon(Icons.Outlined.Close, "Dismiss", tint = if (error) cs.onErrorContainer else cs.onSurfaceVariant)
+                    }
+                }
                 Text(body, style = MaterialTheme.typography.bodyMedium, color = if (error) cs.onErrorContainer else cs.onSurfaceVariant)
                 Spacer(Modifier.size(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

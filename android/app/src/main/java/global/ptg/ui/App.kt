@@ -33,6 +33,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Snackbar
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
@@ -191,8 +194,14 @@ fun App(settings: Settings) {
             },
         )
         // Above the bottom bar on phones; with a side rail there's nothing to clear.
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
-            .padding(bottom = if (wide) 16.dp else 80.dp, start = if (wide) 96.dp else 0.dp))
+        // Just above the bottom bar on phones (beside the rail on wide screens), inset from the
+        // edges like Google's apps, never wider than a readable line.
+        SnackbarHost(
+            snackbar,
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                .padding(start = if (wide) 96.dp else 0.dp, bottom = if (wide) 0.dp else 80.dp)
+                .padding(horizontal = 12.dp, vertical = 12.dp).widthIn(max = 560.dp),
+        ) { Snackbar(it, shape = RoundedCornerShape(16.dp)) }
     } }
 }
 

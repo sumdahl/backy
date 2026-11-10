@@ -75,6 +75,8 @@ data class Settings(
     val pureBlack: Boolean = false,
 
     val onboarded: Boolean = false,
+    /** How many failures the user had when they hid the "couldn't be backed up" notice. */
+    val failuresHiddenAt: Int = 0,
     /** The user said "Not now" to the battery-optimisation notice. */
     val batteryNoticeDismissed: Boolean = false,
 ) {

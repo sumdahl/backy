@@ -239,6 +239,8 @@ fun SearchField(
     )
 }
 
+private const val UNDO_MS = 4_000L
+
 /** The app's one snackbar, shown above the navigation bar on every tab. */
 val LocalSnackbar = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.material3.SnackbarHostState> { error("No snackbar host") }
 
@@ -256,8 +258,10 @@ fun undoable(
 ) {
     scope.launch {
         host.currentSnackbarData?.dismiss()
-        val r = host.showSnackbar(message, actionLabel = "Undo", withDismissAction = true,
-            duration = androidx.compose.material3.SnackbarDuration.Long)
+        // Gone after 4 s: Material's own "long" is 10 s, and longer still with accessibility on.
+        val r = kotlinx.coroutines.withTimeoutOrNull(UNDO_MS) {
+            host.showSnackbar(message, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Indefinite)
+        }
         if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) undo() else commit()
     }
 }

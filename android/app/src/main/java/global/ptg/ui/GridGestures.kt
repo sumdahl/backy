@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
@@ -45,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 /** Thumbnail sizes a pinch steps through. A size, not a column count, so landscape gets more columns. */
@@ -119,31 +119,52 @@ fun Modifier.dragSelect(state: LazyGridState, order: List<Long>, selected: Snaps
         }
     }
 
+    // Watches the Initial pass, ahead of the photos' own tap handling and the grid's scrolling.
+    // Until the long-press fires it only looks; from then on it consumes every event of the touch,
+    // release included, so the photo underneath never also sees a tap (which used to undo the
+    // selection) and the grid never scrolls by itself.
     return pointerInput(state) {
-        detectDragGesturesAfterLongPress(
-            onDragStart = { p ->
-                val id = idAt(p) ?: return@detectDragGesturesAfterLongPress
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onActive(true)
-                anchor = currentOrder.indexOf(id).takeIf { it >= 0 }
-                adding = id !in selected
-                base = selected.toSet()
-                lastPointer = p
-                extendTo(p)
-            },
-            onDrag = { change, _ ->
-                lastPointer = change.position
-                extendTo(change.position)
-                val y = change.position.y
-                autoScroll = when {
-                    y < edge -> -(edge - y) / 3
-                    y > size.height - edge -> (y - (size.height - edge)) / 3
-                    else -> 0f
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val slop = viewConfiguration.touchSlop
+            val held = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val e = awaitPointerEvent(PointerEventPass.Initial)
+                    val c = e.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull false
+                    // Lifted, a second finger (pinch), or moved like a scroll: not a long-press.
+                    if (!c.pressed || e.changes.size > 1 || (c.position - down.position).getDistance() > slop) return@withTimeoutOrNull false
                 }
-            },
-            onDragEnd = { anchor = null; autoScroll = 0f; onActive(false) },
-            onDragCancel = { anchor = null; autoScroll = 0f; onActive(false) },
-        )
+                @Suppress("UNREACHABLE_CODE") false
+            } ?: true
+            if (!held) return@awaitEachGesture
+            val id = idAt(down.position) ?: return@awaitEachGesture
+
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onActive(true)
+            anchor = currentOrder.indexOf(id).takeIf { it >= 0 }
+            adding = id !in selected
+            base = selected.toSet()
+            lastPointer = down.position
+            extendTo(down.position)
+            try {
+                while (true) {
+                    val e = awaitPointerEvent(PointerEventPass.Initial)
+                    val c = e.changes.firstOrNull { it.id == down.id }
+                    e.changes.forEach { it.consume() }
+                    if (c == null || !c.pressed) break
+                    lastPointer = c.position
+                    extendTo(c.position)
+                    val y = c.position.y
+                    autoScroll = when {
+                        y < edge -> -(edge - y) / 3
+                        y > size.height - edge -> (y - (size.height - edge)) / 3
+                        else -> 0f
+                    }
+                }
+            } finally {
+                anchor = null; autoScroll = 0f; onActive(false)
+            }
+        }
     }
 }
 

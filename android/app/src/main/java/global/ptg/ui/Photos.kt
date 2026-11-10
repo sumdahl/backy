@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,13 +35,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -181,10 +177,10 @@ suspend fun markNever(c: global.ptg.AppContainer, items: List<MediaItem>) {
     c.db.uploads().put(items.map { UploadRecord(it.id, it.path, it.size, it.modified, "never", "", "", now) })
 }
 
-/** Day-grouped grid with status badges, long-press to multi-select, tap for details. */
+/** Day-grouped grid with status badges, long-press (and drag) to select, tap to view full screen. */
 @Composable
 fun PhotoGrid(lib: Library, grid: GridData, selected: SnapshotStateList<Long>, modifier: Modifier = Modifier, header: (LazyGridScope.() -> Unit)? = null) {
-    var detail by remember { mutableStateOf<MediaItem?>(null) }
+    var viewing by remember { mutableStateOf<Int?>(null) }
     val c = LocalContext.current.container
     val cellDp by remember { c.settings.data.map { it.gridCellDp } }.collectAsStateWithLifecycle(104)
     val state = rememberLazyGridState()
@@ -224,7 +220,7 @@ fun PhotoGrid(lib: Library, grid: GridData, selected: SnapshotStateList<Long>, m
                 // Long-press (and drag) is handled by dragSelect on the grid.
                 Cell(item, lib.state[item.id], isSelected, selecting = selected.isNotEmpty()) {
                     when {
-                        selected.isEmpty() -> detail = item
+                        selected.isEmpty() -> viewing = order.indexOf(item.id)
                         isSelected -> selected.remove(item.id)
                         else -> selected.add(item.id)
                     }
@@ -234,7 +230,10 @@ fun PhotoGrid(lib: Library, grid: GridData, selected: SnapshotStateList<Long>, m
     }
     FastScroller(state, label, Modifier.align(Alignment.TopEnd))
     }
-    detail?.let { DetailSheet(it, lib.state[it.id], lib.records[it.id]) { detail = null } }
+    viewing?.let { start ->
+        // Swipes follow the grid as shown; a live list, so actions taken in the viewer show up at once.
+        Viewer(order.mapNotNull { byId[it] }, start, lib) { viewing = null }
+    }
 }
 
 @Composable
@@ -307,42 +306,3 @@ private fun EmptyState() {
     }
 }
 
-@Composable
-private fun DetailSheet(item: MediaItem, state: ItemState?, record: UploadRecord?, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val c = context.container
-    val settings by c.settings.data.collectAsStateWithLifecycle(Settings())
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-            AsyncImage(item.uri, null, contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 10).clip(RoundedCornerShape(24.dp)))
-            Spacer(Modifier.size(16.dp))
-            Text(item.name, style = MaterialTheme.typography.titleLarge)
-            Text("${item.bucket} · ${formatBytes(item.size)} · ${dayLabel(item.taken)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.size(12.dp))
-            Text(
-                when (state) {
-                    ItemState.Done -> "In Google Photos" + (record?.account?.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")
-                    ItemState.Failed -> "Couldn't back up: ${record?.detail.orEmpty()}"
-                    ItemState.Never -> "You chose not to back this up"
-                    ItemState.Skipped -> "Skipped: ${record?.detail.orEmpty()}"
-                    ItemState.Pending -> "Waiting for the next backup"
-                    else -> "Its folder isn't being backed up"
-                },
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Spacer(Modifier.size(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (state != ItemState.Done) FilledTonalButton({
-                    startBackup(context, settings, Selection.Items(setOf(item.id))); onDismiss()
-                }) { Text("Back up this") }
-                if (state == ItemState.Never) OutlinedButton({
-                    c.scope.launch { c.db.uploads().delete(listOf(item.id)) }; onDismiss()
-                }) { Text("Allow backup") }
-                else if (state != ItemState.Done) OutlinedButton({
-                    c.scope.launch { markNever(c, listOf(item)) }; onDismiss()
-                }) { Text("Never back up") }
-            }
-        }
-    }
-}

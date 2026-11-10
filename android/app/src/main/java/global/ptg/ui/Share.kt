@@ -133,13 +133,13 @@ private fun ShareSheet(uris: List<Uri>, settings: Settings, onDone: () -> Unit) 
     }
 }
 
-/** Gallery URIs become gallery items; anything else (or a mix) is copied so the job can read it later. */
+/** Gallery URIs become gallery items; anything else (or a mix) is copied so the job can read it later, and retry it. */
 private suspend fun toSelection(context: android.content.Context, uris: List<Uri>, account: String, album: String): Selection =
     withContext(Dispatchers.IO) {
         if (uris.all { it.authority == "media" }) {
             Selection.Items(uris.map { ContentUris.parseId(it) }.toSet(), account, album)
         } else {
-            val dir = File(context.cacheDir, "share").apply { mkdirs() }
+            val dir = global.ptg.backup.Shares.newBatch(context, account, album)
             val paths = uris.mapIndexedNotNull { i, u ->
                 runCatching {
                     val name = context.contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)

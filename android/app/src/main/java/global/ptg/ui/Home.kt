@@ -62,6 +62,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,10 +85,13 @@ import global.ptg.backup.Backup
 import global.ptg.backup.Phase
 import global.ptg.backup.RunState
 import global.ptg.backup.Selection
+import global.ptg.backup.Shares
 import global.ptg.container
 import global.ptg.data.Settings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowAll: () -> Unit, onTab: (Tab) -> Unit) {
@@ -97,6 +103,12 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     val signedIn = accounts.selected.isNotEmpty()
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val health = rememberHealth()
+    // Re-read after every run: a finished backup clears what it uploaded.
+    val scope = rememberCoroutineScope()
+    var shareCheck by remember { mutableIntStateOf(0) }
+    val shares by produceState(emptyList<Selection.Files>(), run.active, shareCheck) {
+        value = withContext(Dispatchers.IO) { Shares.pending(context) }
+    }
 
     // Deletes go through Android's own confirmation, in batches: one request with tens of
     // thousands of URIs would overflow the binder (TransactionTooLargeException).
@@ -163,6 +175,13 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                     "Usually a network hiccup or a file Google Photos won't take.", "Retry",
                     { startBackup(context, settings, Selection.Failed) },
                     secondary = "Details" to { go(Route.Activity) }, error = true)
+            }
+            if (shares.isNotEmpty() && !run.active) item(key = "shares") {
+                val n = shares.sumOf { it.paths.size }
+                Notice(Icons.Outlined.ErrorOutline, "${plural(n, "shared item")} not backed up yet",
+                    "Kept on this phone until they're in Google Photos.", "Retry",
+                    { startBackup(context, settings, shares.first()) },
+                    secondary = "Discard" to { scope.launch(Dispatchers.IO) { Shares.discard(context); shareCheck++ } }, error = true)
             }
             item(key = "folders-h") {
                 SectionHeader("Folders · ${lib.enabledFolders} of ${lib.folders.size} backing up")

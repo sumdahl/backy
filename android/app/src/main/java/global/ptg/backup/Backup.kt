@@ -302,7 +302,8 @@ object Backup {
             flusher.cancel()
             withContext(NonCancellable) {
                 flush(c, toSave, albumWants)
-                if (selection is Selection.Files) selection.paths.forEach { java.io.File(it).delete() }
+                // Keep failed and never-reached shared files so they can be retried.
+                if (selection is Selection.Files) Shares.done(queue.filter { outcome[it.id].let { st -> st != null && st != "failed" } }.map { it.path })
                 c.rescan()
             }
         }

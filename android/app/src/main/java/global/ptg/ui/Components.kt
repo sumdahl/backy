@@ -30,6 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -204,4 +207,33 @@ fun StatTile(value: String, label: String, modifier: Modifier = Modifier, color:
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/** A rounded search field, Google-style: icon, placeholder, clear button. */
+@Composable
+fun SearchField(
+    query: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    focus: androidx.compose.ui.focus.FocusRequester? = null,
+) {
+    androidx.compose.material3.TextField(
+        value = query,
+        onValueChange = onChange,
+        singleLine = true,
+        placeholder = { Text(placeholder) },
+        leadingIcon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.Search, null) },
+        trailingIcon = if (query.isNotEmpty()) {
+            { androidx.compose.material3.IconButton({ onChange("") }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.Close, "Clear") } }
+        } else null,
+        shape = androidx.compose.foundation.shape.CircleShape,
+        colors = androidx.compose.material3.TextFieldDefaults.colors(
+            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+        modifier = modifier.fillMaxWidth().let { m -> focus?.let { m.focusRequester(it) } ?: m },
+    )
 }

@@ -45,6 +45,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,19 +85,25 @@ enum class Filter(val label: String) { All("All"), Pending("Not backed up"), Don
 @androidx.compose.runtime.Immutable
 data class GridData(val shown: List<MediaItem> = emptyList(), val days: List<Pair<Long, List<MediaItem>>> = emptyList(), val ready: Boolean = false)
 
-fun Library.grid(filter: Filter, bucketId: String? = null): GridData {
-    val shown = filtered(filter, bucketId)
+fun Library.grid(filter: Filter, bucketId: String? = null, query: String = ""): GridData {
+    val shown = filtered(filter, bucketId, query)
     return GridData(shown, shown.groupBy { dayKey(it.taken) }.toList(), loaded)
 }
 
-fun Library.filtered(filter: Filter, bucketId: String? = null): List<MediaItem> = items.filter { item ->
-    (bucketId == null || item.bucketId == bucketId) && when (filter) {
+/** [query] matches the file name or the folder name (see [Query]). */
+fun Library.filtered(filter: Filter, bucketId: String? = null, query: String = ""): List<MediaItem> {
+    val q = Query(query)
+    return items.filter { item ->
+    (bucketId == null || item.bucketId == bucketId) &&
+        (q.isEmpty || q.matches(item.name, item.bucket)) &&
+        when (filter) {
         Filter.All -> true
         Filter.Pending -> state[item.id] == ItemState.Pending
         Filter.Done -> state[item.id] == ItemState.Done
         Filter.Failed -> state[item.id] == ItemState.Failed
         Filter.Videos -> item.isVideo
         Filter.Excluded -> state[item.id] == ItemState.Never
+    }
     }
 }
 
@@ -103,12 +112,29 @@ fun PhotosScreen(settings: Settings) {
     val lib by LocalContext.current.container.library.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf(Filter.All) }
     val selected = remember { mutableListOf<Long>().toMutableStateList() }
-    val grid = rememberComputed(lib to filter, GridData()) { (l, f) -> l.grid(f) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val grid = rememberComputed(Triple(lib, filter, query), GridData()) { (l, f, q) -> l.grid(f, query = q) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val closeSearch = { searching = false; query = "" }
+    androidx.activity.compose.BackHandler(searching && selected.isEmpty(), closeSearch)
 
     Scaffold(
         topBar = {
-            if (selected.isEmpty()) TopAppBar(title = { Text("Photos") })
-            else SelectionBar(selected, grid.shown, settings)
+            when {
+                selected.isNotEmpty() -> SelectionBar(selected, grid.shown, settings)
+                searching -> TopAppBar(
+                    navigationIcon = { IconButton(closeSearch) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Close search") } },
+                    title = {
+                        SearchField(query, { query = it }, "Search by name or folder", Modifier.padding(end = 16.dp), focus)
+                        LaunchedEffect(Unit) { focus.requestFocus() }
+                    },
+                )
+                else -> TopAppBar(
+                    title = { Text("Photos") },
+                    actions = { IconButton({ searching = true }) { Icon(Icons.Outlined.Search, "Search") } },
+                )
+            }
         },
     ) { pad ->
         Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {

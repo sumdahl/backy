@@ -57,6 +57,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -106,6 +108,11 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     val health = rememberHealth()
     // Re-read after every run: a finished backup clears what it uploaded.
     val scope = rememberCoroutineScope()
+    var folderQuery by rememberSaveable { mutableStateOf("") }
+    val folders = remember(lib.folders, folderQuery) {
+        val q = Query(folderQuery)
+        if (q.isEmpty) lib.folders else lib.folders.filter { q.matches(it.name) }
+    }
     var shareCheck by remember { mutableIntStateOf(0) }
     val shares by produceState(emptyList<Selection.Files>(), run.active, shareCheck) {
         value = withContext(Dispatchers.IO) { Shares.pending(context) }
@@ -168,11 +175,19 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
             item(key = "folders-h") {
                 SectionHeader("Folders · ${lib.enabledFolders} of ${lib.folders.size} backing up")
             }
+            // Worth it only once the list gets long.
+            if (lib.folders.size > 8) item(key = "folders-search") {
+                SearchField(folderQuery, { folderQuery = it }, "Search folders", Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp))
+            }
+            if (folderQuery.isNotBlank() && folders.isEmpty()) item(key = "folders-none") {
+                Text("No folder matches “${folderQuery.trim()}”", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp))
+            }
             if (!lib.loaded) item(key = "loading") {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { ContainedLoadingIndicator() }
             }
-            itemsIndexed(lib.folders, key = { _, f -> "f-" + f.id }, contentType = { _, _ -> "folder" }) { i, f ->
-                FolderRow(f, i, lib.folders.size, onToggle = { on ->
+            itemsIndexed(folders, key = { _, f -> "f-" + f.id }, contentType = { _, _ -> "folder" }) { i, f ->
+                FolderRow(f, i, folders.size, onToggle = { on ->
                     c.edit { s -> s.copy(folders = s.folders + (f.id to f.prefs.copy(enabled = on))) }
                 }, onOpen = { go(Route.Folder(f.id)) })
             }

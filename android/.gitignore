@@ -6,3 +6,6 @@ local.properties
 .idea/
 app/libs/ptg.aar
 app/libs/ptg-sources.jar
+keystore.properties
+*.jks
+*.keystore

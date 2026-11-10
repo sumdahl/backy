@@ -42,3 +42,10 @@ fun dayLabel(epochMillis: Long): String {
 }
 
 fun dayKey(epochMillis: Long): Long = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
+
+/** "March 2025", or just "March" this year: the fast scroller's bubble. */
+fun monthLabel(epochMillis: Long): String {
+    val d = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+    val month = d.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+    return if (d.year == LocalDate.now().year) month else "$month ${d.year}"
+}

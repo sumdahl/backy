@@ -2,7 +2,6 @@ package global.ptg.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +44,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.flow.map
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Search
@@ -59,10 +61,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -185,11 +185,29 @@ suspend fun markNever(c: global.ptg.AppContainer, items: List<MediaItem>) {
 @Composable
 fun PhotoGrid(lib: Library, grid: GridData, selected: SnapshotStateList<Long>, modifier: Modifier = Modifier, header: (LazyGridScope.() -> Unit)? = null) {
     var detail by remember { mutableStateOf<MediaItem?>(null) }
-    val haptics = LocalHapticFeedback.current
+    val c = LocalContext.current.container
+    val cellDp by remember { c.settings.data.map { it.gridCellDp } }.collectAsStateWithLifecycle(104)
+    val state = rememberLazyGridState()
+    var dragSelecting by remember { mutableStateOf(false) }
+    // Drag-select ranges follow what's on screen: grouped by day, which can differ from grid.shown.
+    val order = remember(grid) { grid.days.flatMap { (_, list) -> list.map { it.id } } }
+    val byId = remember(grid) { grid.shown.associateBy { it.id } }
+    val label = {
+        when (val key = state.layoutInfo.visibleItemsInfo.firstOrNull()?.key) {
+            is Long -> byId[key]?.taken
+            is String -> key.removePrefix("d").toLongOrNull()?.let { java.time.LocalDate.ofEpochDay(it).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }
+            else -> null
+        }?.let { monthLabel(it) }
+    }
 
+    Box(modifier) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(104.dp),
-        modifier = modifier,
+        columns = GridCells.Adaptive(cellDp.dp),
+        state = state,
+        userScrollEnabled = !dragSelecting,
+        modifier = Modifier.fillMaxSize()
+            .pinchToResize(cellDp) { v -> c.edit { it.copy(gridCellDp = v) } }
+            .dragSelect(state, order, selected) { dragSelecting = it },
         contentPadding = PaddingValues(start = 2.dp, end = 2.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -203,32 +221,30 @@ fun PhotoGrid(lib: Library, grid: GridData, selected: SnapshotStateList<Long>, m
             }
             items(list, key = { it.id }, contentType = { "media" }) { item ->
                 val isSelected = item.id in selected
-                Cell(item, lib.state[item.id], isSelected, selecting = selected.isNotEmpty(),
-                    onClick = {
-                        when {
-                            selected.isEmpty() -> detail = item
-                            isSelected -> selected.remove(item.id)
-                            else -> selected.add(item.id)
-                        }
-                    },
-                    onLongClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (!isSelected) selected.add(item.id)
-                    })
+                // Long-press (and drag) is handled by dragSelect on the grid.
+                Cell(item, lib.state[item.id], isSelected, selecting = selected.isNotEmpty()) {
+                    when {
+                        selected.isEmpty() -> detail = item
+                        isSelected -> selected.remove(item.id)
+                        else -> selected.add(item.id)
+                    }
+                }
             }
         }
+    }
+    FastScroller(state, label, Modifier.align(Alignment.TopEnd))
     }
     detail?.let { DetailSheet(it, lib.state[it.id], lib.records[it.id]) { detail = null } }
 }
 
 @Composable
-private fun Cell(item: MediaItem, state: ItemState?, selected: Boolean, selecting: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun Cell(item: MediaItem, state: ItemState?, selected: Boolean, selecting: Boolean, onClick: () -> Unit) {
     val inset by animateDpAsState(if (selected) 12.dp else 0.dp, label = "inset")
     val corner by animateDpAsState(if (selected) 16.dp else 4.dp, label = "corner")
     Box(
         Modifier.aspectRatio(1f)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .clickable(onClick = onClick)
             .semantics { contentDescription = "${item.name}, ${state?.label ?: ""}" },
     ) {
         val context = LocalContext.current

@@ -66,6 +66,9 @@ data class Settings(
     /** How long Backy may be out of sight before it locks again. */
     val lockAfterSec: Int = 60,
 
+    /** Photo grid thumbnail size in dp; pinch to change. */
+    val gridCellDp: Int = 104,
+
     // Appearance
     val theme: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = true,

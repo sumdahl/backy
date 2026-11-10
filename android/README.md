@@ -2,7 +2,7 @@
 
 Backs up the phone gallery to Google Photos using the same upload core as the
 `ptg` CLI, bound to Kotlin with gomobile. Unofficial: read the warning in the
-top-level README first.
+[top-level README](../README.md) first.
 
 ## Build
 

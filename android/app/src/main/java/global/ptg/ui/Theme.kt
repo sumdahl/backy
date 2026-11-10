@@ -10,6 +10,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.SideEffect
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import global.ptg.data.Settings
@@ -44,6 +48,16 @@ fun PtgTheme(settings: Settings, content: @Composable () -> Unit) {
         else -> LightFallback
     }
     if (dark && settings.pureBlack) scheme = scheme.pureBlack()
+    // System bar icons follow the theme Backy draws, not the phone's dark mode: with Theme set to
+    // Light on a dark phone (or the reverse), the platform default leaves light icons on a light bar.
+    val activity = LocalActivity.current
+    val view = LocalView.current
+    if (activity != null && !view.isInEditMode) SideEffect {
+        WindowCompat.getInsetsController(activity.window, view).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+    }
     MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), content = content)
 }
 

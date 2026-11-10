@@ -203,7 +203,7 @@ object Backup {
             else -> null
         }?.takeIf { it.isNotBlank() }?.trim()
         fun targetFor(item: MediaItem) =
-            albumOverride?.let { if (isAlbumKey(it)) "key:$it" else "name:$it" } ?: s.albumTarget(item)
+            albumOverride?.let { albumRef(it) }?.let { if (isAlbumKey(it)) "key:$it" else "name:$it" } ?: s.albumTarget(item)
         if (queue.isEmpty()) {
             val albumNote = syncAlbums(c, s, items)
             state.value = RunState(phase = Phase.Finished, endedAt = System.currentTimeMillis(),

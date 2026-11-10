@@ -117,3 +117,12 @@ class AlbumSync(
 }
 
 fun isAlbumKey(s: String) = s.startsWith("AF1Qip") && s.length > 6
+
+private val albumUrl = Regex("""/album/(AF1Qip[A-Za-z0-9_-]+)""")
+
+/**
+ * What the user typed into an album field: a Google Photos album web address
+ * (photos.google.com/…/album/AF1Qip…) becomes its key, so an existing album can be linked by
+ * pasting its link. Anything else is returned trimmed: a key, or a name to create.
+ */
+fun albumRef(input: String): String = input.trim().let { s -> albumUrl.find(s)?.groupValues?.get(1) ?: s }

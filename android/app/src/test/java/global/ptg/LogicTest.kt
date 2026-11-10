@@ -61,3 +61,14 @@ class LogicTest {
         assertTrue(Settings().wants(item(size = 2L * 1024 * 1024)))
     }
 }
+
+class AlbumRefTest {
+    @org.junit.Test
+    fun albumLinksBecomeKeys() {
+        val key = "AF1QipOxyz_-123"
+        org.junit.Assert.assertEquals(key, global.ptg.backup.albumRef("https://photos.google.com/album/$key"))
+        org.junit.Assert.assertEquals(key, global.ptg.backup.albumRef("https://photos.google.com/u/1/album/$key?pli=1"))
+        org.junit.Assert.assertEquals(key, global.ptg.backup.albumRef("  $key "))
+        org.junit.Assert.assertEquals("Panchpokhari", global.ptg.backup.albumRef(" Panchpokhari "))
+    }
+}

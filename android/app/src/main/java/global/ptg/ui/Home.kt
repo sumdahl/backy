@@ -1,9 +1,5 @@
 package global.ptg.ui
 
-import android.provider.MediaStore
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -79,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import global.ptg.FolderUi
-import global.ptg.ItemState
 import global.ptg.Library
 import global.ptg.backup.Backup
 import global.ptg.backup.Phase
@@ -108,21 +103,6 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     var shareCheck by remember { mutableIntStateOf(0) }
     val shares by produceState(emptyList<Selection.Files>(), run.active, shareCheck) {
         value = withContext(Dispatchers.IO) { Shares.pending(context) }
-    }
-
-    // Deletes go through Android's own confirmation, in batches: one request with tens of
-    // thousands of URIs would overflow the binder (TransactionTooLargeException).
-    val deleteQueue = remember { ArrayDeque<List<android.net.Uri>>() }
-    lateinit var nextDelete: () -> Unit
-    val freeUp = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
-        if (res.resultCode == android.app.Activity.RESULT_OK) nextDelete() else deleteQueue.clear()
-        c.scope.launch { c.rescan() }
-    }
-    nextDelete = {
-        deleteQueue.removeFirstOrNull()?.let { batch ->
-            val req = MediaStore.createDeleteRequest(context.contentResolver, batch)
-            freeUp.launch(IntentSenderRequest.Builder(req.intentSender).build())
-        }
     }
 
     Scaffold(
@@ -198,11 +178,7 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                 Spacer(Modifier.size(16.dp))
                 Notice(Icons.Outlined.DeleteSweep, "Free up ${formatBytes(lib.doneBytes)}",
                     "${plural(lib.doneCount, "item")} on this phone are already safe in Google Photos.",
-                    "Free up space", {
-                        deleteQueue.clear()
-                        deleteQueue.addAll(lib.items.filter { lib.state[it.id] == ItemState.Done }.map { it.uri }.chunked(2_000))
-                        nextDelete()
-                    })
+                    "Review", { go(Route.FreeUp) })
             }
         }
     }

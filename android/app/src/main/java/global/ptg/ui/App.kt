@@ -57,6 +57,7 @@ sealed interface Route {
     data object Login : Route
     data object Activity : Route
     data object Stats : Route
+    data object FreeUp : Route
     data class Folder(val id: String) : Route
 }
 
@@ -165,6 +166,7 @@ fun App(settings: Settings) {
             entry<Route.Login> { LoginScreen(onDone = back) }
             entry<Route.Activity> { ActivityScreen(settings, onBack = back) }
             entry<Route.Stats> { StatsScreen(onBack = back) }
+            entry<Route.FreeUp> { FreeUpScreen(onBack = back) }
             entry<Route.Folder> { FolderScreen(it.id, settings, onBack = back) }
         },
     )

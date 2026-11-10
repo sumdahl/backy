@@ -36,7 +36,9 @@ class StartBackupActivity : ComponentActivity() {
             val c = container
             c.refreshAccounts()
             val signedIn = c.accounts.value.selected.isNotEmpty()
-            if (signedIn && !Backup.state.value.active) {
+            // Without notifications the backup would run invisibly; open the app, which explains.
+            val canNotify = androidx.core.app.NotificationManagerCompat.from(this@StartBackupActivity).areNotificationsEnabled()
+            if (signedIn && canNotify && !Backup.state.value.active) {
                 Backup.start(this@StartBackupActivity, Selection.All, c.settings.data.first().wifiOnly)
             } else {
                 startActivity(Intent(this@StartBackupActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -74,8 +76,15 @@ class BackupTile : TileService() {
         val target = if (Backup.state.value.active) {
             PendingIntent.getActivity(this, 8, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
         } else StartBackupActivity.pendingIntent(this)
-        if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(target)
-        else @Suppress("DEPRECATION") startActivityAndCollapse(Intent(this, StartBackupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(target) else collapseLegacy()
+    }
+
+    /** Android 12-13 only take an Intent here; 14+ use the PendingIntent overload above. */
+    @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    private fun collapseLegacy() {
+        val cls = if (Backup.state.value.active) MainActivity::class.java else StartBackupActivity::class.java
+        startActivityAndCollapse(Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     companion object {

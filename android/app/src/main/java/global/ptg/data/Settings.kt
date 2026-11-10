@@ -63,6 +63,8 @@ data class Settings(
     val pureBlack: Boolean = false,
 
     val onboarded: Boolean = false,
+    /** The user said "Not now" to the battery-optimisation notice. */
+    val batteryNoticeDismissed: Boolean = false,
 ) {
     fun folder(bucketId: String, bucketName: String): FolderPrefs =
         folders[bucketId] ?: FolderPrefs(enabled = bucketName in defaultFolders)

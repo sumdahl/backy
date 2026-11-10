@@ -30,7 +30,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -94,6 +96,7 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
     val accounts by c.accounts.collectAsStateWithLifecycle()
     val signedIn = accounts.selected.isNotEmpty()
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val health = rememberHealth()
 
     // Deletes go through Android's own confirmation, in batches: one request with tens of
     // thousands of URIs would overflow the binder (TransactionTooLargeException).
@@ -139,6 +142,17 @@ fun HomeScreen(settings: Settings, access: Access, go: (Route) -> Unit, onAllowA
                     onDetails = { go(Route.Activity) },
                     onSignIn = { go(Route.Login) },
                 )
+            }
+            if (!health.notifications) item(key = "notif") {
+                Notice(Icons.Outlined.NotificationsOff, "Notifications are off",
+                    "You won't see backup progress or know when it's done. Android also hides the running backup.",
+                    "Turn on", { context.startActivity(appNotificationSettings(context)) })
+            }
+            if (!health.unrestricted && !settings.batteryNoticeDismissed) item(key = "battery") {
+                Notice(Icons.Outlined.BatteryAlert, "Let backups run with the screen off",
+                    "Some phones stop long uploads to save battery. Allowing Backy to run unrestricted keeps them going.",
+                    "Allow", { context.startActivity(batteryExemption(context)) },
+                    secondary = "Not now" to { c.edit { it.copy(batteryNoticeDismissed = true) } })
             }
             if (access == Access.Partial) item(key = "partial") {
                 Notice(Icons.Outlined.PhotoLibrary, "Only some photos are shared with the app",

@@ -4,6 +4,9 @@ import android.app.job.JobInfo
 import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.os.Build
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.PersistableBundle
@@ -113,23 +116,42 @@ object Backup {
     private const val JOB_ID = 42
     val state = MutableStateFlow(RunState())
 
-    /** Must be called while the app is visible: user-initiated jobs are started by a tap. */
+    /** Must be called while the app is visible: user-initiated jobs and foreground services are started by a tap. */
     fun start(context: Context, selection: Selection, wifiOnly: Boolean) {
-        val net = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .apply { if (wifiOnly) addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) }
-            .build()
-        val job = JobInfo.Builder(JOB_ID, ComponentName(context, BackupJob::class.java))
-            .setUserInitiated(true)
-            .setRequiredNetwork(net)
-            .setExtras(selection.toBundle())
-            .build()
-        state.value = RunState(phase = Phase.Queued, message = if (wifiOnly) "Waiting for Wi-Fi" else "Waiting for network")
-        context.getSystemService(JobScheduler::class.java).schedule(job)
+        if (Build.VERSION.SDK_INT >= 34) {
+            val net = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .apply { if (wifiOnly) addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) }
+                .build()
+            val job = JobInfo.Builder(JOB_ID, ComponentName(context, BackupJob::class.java))
+                .setUserInitiated(true)
+                .setRequiredNetwork(net)
+                .setExtras(selection.toBundle())
+                .build()
+            state.value = RunState(phase = Phase.Queued, message = if (wifiOnly) "Waiting for Wi-Fi" else "Waiting for network")
+            context.getSystemService(JobScheduler::class.java).schedule(job)
+        } else {
+            // No job to wait for the network on Android 12-13, so check it up front.
+            val caps = context.getSystemService(ConnectivityManager::class.java).let { it.getNetworkCapabilities(it.activeNetwork) }
+            val problem = when {
+                caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true -> "No internet connection"
+                wifiOnly && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) -> "Connect to Wi-Fi to back up"
+                else -> null
+            }
+            if (problem != null) {
+                val now = System.currentTimeMillis()
+                state.value = RunState(phase = Phase.Error, message = problem, startedAt = now, endedAt = now)
+                return
+            }
+            state.value = RunState(phase = Phase.Queued, message = "Starting")
+            context.startForegroundService(Intent(context, BackupService::class.java)
+                .putExtra(BackupService.EXTRA_SELECTION, selection.toBundle()))
+        }
     }
 
     fun stop(context: Context) {
-        context.getSystemService(JobScheduler::class.java).cancel(JOB_ID)
+        if (Build.VERSION.SDK_INT >= 34) context.getSystemService(JobScheduler::class.java).cancel(JOB_ID)
+        else context.stopService(Intent(context, BackupService::class.java))
         state.update { if (it.active) it.copy(phase = Phase.Stopped, endedAt = System.currentTimeMillis(), threads = emptyList()) else it }
     }
 

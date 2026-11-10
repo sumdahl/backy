@@ -65,7 +65,7 @@ class ShareActivity : ComponentActivity() {
         if (uris.isEmpty()) { finish(); return }
         setContent {
             val settings by container.settings.data.collectAsStateWithLifecycle(initialValue = Settings())
-            PtgTheme(settings) { ShareSheet(uris, settings, onDone = ::finish) }
+            PtgTheme(settings) { LockGate(settings) { ShareSheet(uris, settings, onDone = ::finish) } }
         }
     }
 

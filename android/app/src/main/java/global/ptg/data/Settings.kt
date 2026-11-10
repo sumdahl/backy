@@ -61,6 +61,11 @@ data class Settings(
     val wifiOnly: Boolean = true,
     val proxy: String = "",
 
+    // Privacy
+    val appLock: Boolean = false,
+    /** How long Backy may be out of sight before it locks again. */
+    val lockAfterSec: Int = 60,
+
     // Appearance
     val theme: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = true,

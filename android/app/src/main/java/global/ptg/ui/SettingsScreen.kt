@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.HighQuality
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MotionPhotosOn
@@ -129,6 +130,34 @@ fun SettingsScreen(s: Settings) {
                 SegmentGroup(listOf(
                     { TextRow("Proxy", s.proxy, "Direct connection", { v -> edit { it.copy(proxy = v) } }, Icons.Outlined.Router,
                         help = "http://host:port or socks5://host:port") },
+                ))
+            }
+
+            item { SectionHeader("Privacy") }
+            item {
+                SegmentGroup(listOfNotNull(
+                    {
+                        SwitchRow("App lock", s.appLock, { on ->
+                            val activity = context as? android.app.Activity
+                            when {
+                                activity == null -> Unit
+                                !AppLock.available(context) -> android.widget.Toast.makeText(context,
+                                    "Set up a screen lock on your phone first", android.widget.Toast.LENGTH_LONG).show()
+                                // Confirm it's you both ways, so someone holding the unlocked app can't switch it off.
+                                else -> AppLock.authenticate(activity, if (on) "Turn on app lock" else "Turn off app lock") {
+                                    edit { it.copy(appLock = on) }
+                                }
+                            }
+                        }, "Ask for your fingerprint, face or screen lock to open Backy", Icons.Outlined.Fingerprint)
+                    },
+                    if (s.appLock) {
+                        {
+                            ChoiceRow("Lock after", listOf(0, 60, 300, 900), s.lockAfterSec,
+                                { when (it) { 0 -> "Immediately"; 60 -> "1 minute"; 300 -> "5 minutes"; else -> "15 minutes" } }) { v ->
+                                edit { it.copy(lockAfterSec = v) }
+                            }
+                        }
+                    } else null,
                 ))
             }
 

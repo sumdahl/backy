@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import global.ptg.ui.App
+import global.ptg.ui.LockGate
 import global.ptg.ui.PtgTheme
 
 class MainActivity : ComponentActivity() {
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
             val settings by container.settings.data.collectAsStateWithLifecycle(initialValue = null)
             val s = settings ?: return@setContent
             ready = true
-            PtgTheme(s) { App(s) }
+            PtgTheme(s) { LockGate(s) { App(s) } }
         }
     }
 

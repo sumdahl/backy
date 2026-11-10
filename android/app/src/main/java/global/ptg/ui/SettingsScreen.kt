@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DateRange
@@ -59,7 +61,13 @@ fun SettingsScreen(s: Settings) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 32.dp)) {
             item { SectionHeader("Backup") }
             item {
-                SegmentGroup(listOf(
+                SegmentGroup(listOfNotNull(
+                    { SwitchRow("Back up new photos automatically", s.autoBackup, { v -> edit { it.copy(autoBackup = v) } },
+                        "Off: backups only run when you tap Back up now", Icons.Outlined.Autorenew) },
+                    if (s.autoBackup) {
+                        { SwitchRow("Only while charging", s.autoChargingOnly, { v -> edit { it.copy(autoChargingOnly = v) } },
+                            "Automatic backups wait until the phone is plugged in", Icons.Outlined.BatteryChargingFull) }
+                    } else null,
                     { SwitchRow("Wi-Fi only", s.wifiOnly, { v -> edit { it.copy(wifiOnly = v) } }, "Wait for Wi-Fi instead of using mobile data", Icons.Outlined.Wifi) },
                     {
                         ChoiceRow("What to back up", MediaTypes.entries, s.mediaTypes,

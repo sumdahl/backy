@@ -70,9 +70,10 @@ object Notifs {
             .build()
     }
 
-    fun finished(context: Context, s: RunState) {
+    fun finished(context: Context, s: RunState, quiet: Boolean = false) {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (s.phase == Phase.Stopped) return
+        if (quiet && s.phase != Phase.Error && s.uploaded == 0 && s.failed == 0) return
         val title = when {
             s.phase == Phase.Error -> "Backup didn't run"
             s.total == 0 -> "Everything is backed up"

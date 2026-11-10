@@ -118,6 +118,7 @@ object Backup {
 
     /** Must be called while the app is visible: user-initiated jobs and foreground services are started by a tap. */
     fun start(context: Context, selection: Selection, wifiOnly: Boolean) {
+        AutoBackup.cancelWork(context)
         if (Build.VERSION.SDK_INT >= 34) {
             val net = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -150,6 +151,7 @@ object Backup {
     }
 
     fun stop(context: Context) {
+        AutoBackup.cancelWork(context)
         if (Build.VERSION.SDK_INT >= 34) context.getSystemService(JobScheduler::class.java).cancel(JOB_ID)
         else context.stopService(Intent(context, BackupService::class.java))
         state.update { if (it.active) it.copy(phase = Phase.Stopped, endedAt = System.currentTimeMillis(), threads = emptyList()) else it }

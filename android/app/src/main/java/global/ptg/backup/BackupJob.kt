@@ -23,10 +23,11 @@ import kotlinx.coroutines.withContext
 
 /**
  * One backup run, whatever hosts it: keeps the notification, widget and tile live, records the
- * run, and posts the result. Shared by [BackupJob] (Android 14+) and [BackupService] (12–13).
+ * run, and posts the result. Shared by [BackupJob] (Android 14+), [BackupService] (12–13) and
+ * [AutoBackupJob]. [quiet] runs only notify when something happened.
  */
 @OptIn(FlowPreview::class)
-private suspend fun runHosted(context: Context, selection: Selection) = kotlinx.coroutines.coroutineScope {
+internal suspend fun runHosted(context: Context, selection: Selection, quiet: Boolean = false) = kotlinx.coroutines.coroutineScope {
     val c = context.container
     val nm = context.getSystemService(NotificationManager::class.java)
     val ticker = launch {
@@ -53,11 +54,12 @@ private suspend fun runHosted(context: Context, selection: Selection) = kotlinx.
             BackupWidget.refresh(context)
             BackupTile.refresh(context)
         }
-        Notifs.finished(context, Backup.state.value)
+        nm.cancel(Notifs.PROGRESS_ID)
+        Notifs.finished(context, Backup.state.value, quiet)
     }
 }
 
-private fun markStopped() {
+internal fun markStopped() {
     Backup.state.value = Backup.state.value.copy(phase = Phase.Stopped, threads = emptyList(), endedAt = System.currentTimeMillis())
 }
 

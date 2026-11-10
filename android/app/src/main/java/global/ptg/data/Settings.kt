@@ -53,6 +53,10 @@ data class Settings(
     val skipIncompleteLive: Boolean = false,
     val updateExistingToLive: Boolean = false,
 
+    // Automatic backup (off: backups only run when asked)
+    val autoBackup: Boolean = false,
+    val autoChargingOnly: Boolean = false,
+
     // Network
     val wifiOnly: Boolean = true,
     val proxy: String = "",

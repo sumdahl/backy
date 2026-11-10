@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 class PtgApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
@@ -109,6 +110,11 @@ class AppContainer(val app: Application) {
 
     init {
         scope.launch { refreshAccounts() }
+        // Keep the automatic-backup jobs in step with the setting (and restore them after a force stop).
+        scope.launch {
+            settings.data.distinctUntilChanged { a, b -> a.autoBackup == b.autoBackup && a.wifiOnly == b.wifiOnly && a.autoChargingOnly == b.autoChargingOnly }
+                .collect { global.ptg.backup.AutoBackup.sync(app, it) }
+        }
     }
 
     suspend fun refreshAccounts() {
